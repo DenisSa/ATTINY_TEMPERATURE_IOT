@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <avr/sleep.h>
+#include <avr/wdt.h>
 
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
@@ -23,18 +25,36 @@ void initPins();
 void ftoa(float n, char *res, int afterpoint);
 int intToStr(int x, char str[], int d);
 void reverse(char *str, int len);
+uint8_t wdt_counter = 0;
+
+void setupWatchdog() {
+	cli();
+	set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+	MCUSR = 0;
+	WDTCR = (1 << WDCE) | (1 << WDE);
+	WDTCR = 0;
+	sei();
+}
+
+ISR(WDT_vect) {
+// Flip bit 3 of PORTB
+	//PORTB ^= (1);
+	/* ReEnable the watchdog interrupt, as this gets reset when entering this ISR and automatically enables the WDE signal that resets the MCU the next time the  timer overflows */
+	WDTCR |= (1 << WDIE);
+	wdt_counter++;
+}
 
 int main(void) {
 	uint8_t data[5];
-	int i;
 	float ftemperature = 0;
 	float fhumidity = 0;
 	char hdata[6];
 	char tdata[6];
 	char msgString[256];
 	char msgSize[8];
-	_delay_ms(5000);
 	initPins();
+	_delay_ms(5000);
+
 	while (1) {
 		if (readAM2302Data(AM2302DATA, data) == 0) {
 			ftemperature = getTemperature(data);
@@ -44,7 +64,7 @@ int main(void) {
 			snprintf(msgString, sizeof msgString, "T:%s;H:%s;", tdata, hdata);
 			snprintf(msgSize, sizeof msgSize, "%d", strlen(msgString));
 			softuart_init();
-			sei();
+			//sei();
 			//softuart_puts("test\r\n\n");
 			softuart_puts("AT+CIPSTART=\"TCP\",\"192.168.0.101\",5555\r\n\n");
 			_delay_ms(5000);
@@ -60,11 +80,16 @@ int main(void) {
 			softuart_puts("");
 			_delay_ms(1000);
 			softuart_puts("AT+CIPCLOSE\r\n\n");
-			cli();
-			for (i = 0; i < 60; i++) {
-				_delay_ms(1000);
-			}
+			//cli();
 		}
+		setupWatchdog();
+		WDTCR = (1 << WDIE) | (1 << WDP3) | (1 << WDP0); //8 sec
+		while (wdt_counter < 16) { //8 sec * x
+			WDTCR |= (1 << WDIE);
+			sleep_mode();
+		}
+		wdt_counter = 0;
+		WDTCR |= (0 << WDIE);
 	}
 }
 
@@ -80,7 +105,7 @@ void initPins() {
 	setdirection(PB2, IN);
 	setdirection(PB1, OUT);
 	setdirection(AM2302DATA, OUT);
-
+	//setdirection(PB0, OUT);
 	setpin(PB1, 0);
 	setpin(AM2302DATA, 1);
 }

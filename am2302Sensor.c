@@ -3,6 +3,7 @@
 #include "gpio.h"
 #include "am2302Sensor.h"
 #include <stdlib.h>
+#include <avr/interrupt.h>
 //#define F_CPU 8000000UL
 uint8_t data[5] = { 0 };
 uint64_t sensor_reading = 0;
@@ -43,7 +44,7 @@ int readAM2302Data(int data_pin, uint8_t * data) {
 	uint16_t counter = 0;
 	uint8_t chksum = 0;
 	//uint8_t returnVal = 0;
-
+	cli();
 	setdirection(data_pin, OUT);
 
 	//uint8_t result=0;
@@ -89,6 +90,7 @@ int readAM2302Data(int data_pin, uint8_t * data) {
 	data[4] = (sensor_reading) & 0xFF;
 
 	chksum = (data[0] + data[1] + data[2] + data[3]) & 0xFF;
+	sei();
 	if (data[4] == chksum) {
 		return 0;
 	}
