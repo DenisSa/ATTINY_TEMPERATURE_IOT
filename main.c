@@ -4,11 +4,12 @@
  *  Created on: Jun 20, 2016
  *      Author: d
  */
-#define F_CPU 8000000UL
+//#define F_CPU 8000000UL
 #include <util/delay.h>
 #include <avr/io.h>
 #include "gpio.h"
 #include "am2302Sensor.h"
+#include "ds18b20.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -25,7 +26,12 @@ void initPins();
 void ftoa(float n, char *res, int afterpoint);
 int intToStr(int x, char str[], int d);
 void reverse(char *str, int len);
+void setupWatchdog();
+void sendMessage(char tdata[], char hdata[]);
+int getSensorType();
+
 uint8_t wdt_counter = 0;
+int negative = 0;
 
 void setupWatchdog() {
 	cli();
@@ -50,38 +56,38 @@ int main(void) {
 	float fhumidity = 0;
 	char hdata[6];
 	char tdata[6];
-	char msgString[256];
-	char msgSize[8];
+
+	//float temp = 0;
+	int ds_temp = 0;
+
 	initPins();
-	_delay_ms(5000);
+	_delay_ms(1000);
 
 	while (1) {
-		if (readAM2302Data(AM2302DATA, data) == 0) {
-			ftemperature = getTemperature(data);
-			fhumidity = getHumidity(data);
-			ftoa(ftemperature, tdata, 1);
-			ftoa(fhumidity, hdata, 1);
-			snprintf(msgString, sizeof msgString, "T:%s;H:%s;", tdata, hdata);
-			snprintf(msgSize, sizeof msgSize, "%d", strlen(msgString));
-			softuart_init();
-			//sei();
-			//softuart_puts("test\r\n\n");
-			softuart_puts("AT+CIPSTART=\"TCP\",\"192.168.0.101\",5555\r\n\n");
-			_delay_ms(5000);
-			softuart_puts("AT+CIPSEND=");
-			softuart_puts(msgSize);
-			softuart_puts("\r\n\n");
-			_delay_ms(1000);
-			softuart_puts("T:");
-			softuart_puts(tdata);
-			softuart_puts(";H:");
-			softuart_puts(hdata);
-			softuart_puts(";");
-			softuart_puts("");
-			_delay_ms(1000);
-			softuart_puts("AT+CIPCLOSE\r\n\n");
-			//cli();
+		if(getSensorType()){
+			if (readAM2302Data(AM2302DATA, data) == 0) {
+				ftemperature = getTemperature(data);
+				fhumidity = getHumidity(data);
+				ftoa(ftemperature, tdata, 1);
+				ftoa(fhumidity, hdata, 1);
+				sendMessage(tdata, hdata);
+			}
 		}
+		else{
+			if (readTempData_ds18b20(&ds_temp) == 0) {
+				if (ds_temp & 0x8000) {
+					ds_temp=0x10000-ds_temp;
+					negative=1;
+				} else {
+					negative=0;
+				}
+				ftemperature = ds_temp / 16.0;
+				ftoa(ftemperature, tdata, 2);
+				ftoa(0.0, hdata,2);
+				sendMessage(tdata,hdata);
+			}
+		}
+		//_delay_ms(1000);
 		setupWatchdog();
 		WDTCR = (1 << WDIE) | (1 << WDP3) | (1 << WDP0); //8 sec
 		while (wdt_counter < 16) { //8 sec * x
@@ -90,23 +96,56 @@ int main(void) {
 		}
 		wdt_counter = 0;
 		WDTCR |= (0 << WDIE);
+		
+
 	}
+}
+
+void sendMessage(char tdata[], char hdata[]){
+	char msgString[256];
+	char msgSize[8];
+
+	snprintf(msgString, sizeof msgString, "T:%s;H:%s;", tdata, hdata);
+	snprintf(msgSize, sizeof msgSize, "%d", strlen(msgString));
+	softuart_init();
+	softuart_puts("AT+CIPSTART=\"TCP\",\"192.168.0.101\",5555\r\n\n");
+	_delay_ms(5000);
+	softuart_puts("AT+CIPSEND=");
+	softuart_puts(msgSize);
+	softuart_puts("\r\n\n");
+	_delay_ms(1000);
+	softuart_puts("T:");
+	if(negative){
+		softuart_puts("-");
+	}
+	softuart_puts(tdata);
+	softuart_puts(";H:");
+	softuart_puts(hdata);
+	softuart_puts(";");
+	softuart_puts("");
+	_delay_ms(1000);
+	softuart_puts("AT+CIPCLOSE\r\n\n");
+}
+
+int getSensorType(){
+	setdirection(PB1,IN);
+	return ((PINB & _BV(PB1)) >> PB1);
 }
 
 void initPins() {
 	/*
 	 *
-	 *  pb2 - IN Analog
-	 *  pb1 - OUT Power control
+	 *  pb2 - OUT DS18B20
+	 *  pb1 - Sensor select
 	 *  pb3 - OUT/IN AM2302 comms
 	 *  pb4 - OUT Clock
 	 *  pb0 - comms out
 	 */
-	setdirection(PB2, IN);
-	setdirection(PB1, OUT);
+	setdirection(PB2, OUT);
+	setdirection(PB1, IN);
 	setdirection(AM2302DATA, OUT);
 	//setdirection(PB0, OUT);
-	setpin(PB1, 0);
+	//setpin(PB1, 0);
 	setpin(AM2302DATA, 1);
 }
 

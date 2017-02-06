@@ -31,3 +31,7 @@ void setdirection(int pn, int val) {
 		DDRB &= ~(1 << pn);
 	}
 }
+
+uint8_t readBit(int data_pin) {
+	return ((PINB & _BV(data_pin)) >> data_pin);
+}

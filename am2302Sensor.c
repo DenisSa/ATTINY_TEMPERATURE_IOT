@@ -8,10 +8,6 @@
 uint8_t data[5] = { 0 };
 uint64_t sensor_reading = 0;
 
-uint8_t readBit(int data_pin) {
-	return ((PINB & _BV(data_pin)) >> data_pin);
-}
-
 float getTemperature(uint8_t * data) {
 	uint16_t temperature;
 
