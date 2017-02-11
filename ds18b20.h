@@ -1,13 +1,12 @@
-#define TDATA PB2
 #define TPIN PINB
 #define TDDR DDRB
 #define IN 0
 #define OUT 1
 
-int readTempData_ds18b20(int *temperature);
+int readTempData_ds18b20(int data_pin, int *temperature);
 uint8_t resetSensor();
-void OWBlock(unsigned char *data, int data_len);
-int OWTouchByte(int data);
+//void OWBlock(unsigned char *data, int data_len);
+//int OWTouchByte(int data);
 int OWReadByte(void);
 void OWWriteByte(int data);
 uint8_t ds18b20_readBit();

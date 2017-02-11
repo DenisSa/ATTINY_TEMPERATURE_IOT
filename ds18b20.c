@@ -3,7 +3,10 @@
 #include "ds18b20.h"
 #include "gpio.h"
 
-int readTempData_ds18b20(int *temperature) {
+int TDATA;
+
+int readTempData_ds18b20(int data_pin, int *temperature) {
+	TDATA=data_pin;
 	if(resetSensor() != 0){
 		return 1;
 	}
@@ -100,7 +103,7 @@ int OWReadByte(void)
 //-----------------------------------------------------------------------------
 // Write a 1-Wire data byte and return the sampled result.
 //
-int OWTouchByte(int data)
+/*int OWTouchByte(int data)
 {
         int loop, result=0;
 
@@ -122,13 +125,13 @@ int OWTouchByte(int data)
                 data >>= 1;
         }
         return result;
-}
+}*/
 
 //-----------------------------------------------------------------------------
 // Write a block 1-Wire data bytes and return the sampled result in the same
 // buffer.
 //
-void OWBlock(unsigned char *data, int data_len)
+/*void OWBlock(unsigned char *data, int data_len)
 {
         int loop;
 
@@ -137,7 +140,7 @@ void OWBlock(unsigned char *data, int data_len)
                 data[loop] = OWTouchByte(data[loop]);
         }
 }
-
+*/
 int readScratchpad(int bytes){
 	//int byte[2];
 	int result = 0;

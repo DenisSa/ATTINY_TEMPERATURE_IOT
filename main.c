@@ -10,17 +10,16 @@
 #include "gpio.h"
 #include "am2302Sensor.h"
 #include "ds18b20.h"
-#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <avr/sleep.h>
 #include <avr/wdt.h>
-
+#include <avr/eeprom.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include "softuart.h"
 
-#define AM2302DATA PB3
+#define SENSOR PB3
 
 void initPins();
 void ftoa(float n, char *res, int afterpoint);
@@ -29,9 +28,15 @@ void reverse(char *str, int len);
 void setupWatchdog();
 void sendMessage(char tdata[], char hdata[]);
 int getSensorType();
+char * getDeviceID();
 
 uint8_t wdt_counter = 0;
 int negative = 0;
+char * device_id;
+
+const char command_0[] = "AT+CIPSTART=\"TCP\"";
+const char command_1[] = "AT+CIPSEND=";
+const char command_2[] = "AT+CIPCLOSE\r\n\n";
 
 void setupWatchdog() {
 	cli();
@@ -59,13 +64,13 @@ int main(void) {
 
 	//float temp = 0;
 	int ds_temp = 0;
-
+	device_id = getDeviceID();
 	initPins();
-	_delay_ms(1000);
+	_delay_ms(5000);
 
 	while (1) {
 		if(getSensorType()){
-			if (readAM2302Data(AM2302DATA, data) == 0) {
+			if (readAM2302Data(SENSOR, data) == 0) {
 				ftemperature = getTemperature(data);
 				fhumidity = getHumidity(data);
 				ftoa(ftemperature, tdata, 1);
@@ -74,7 +79,7 @@ int main(void) {
 			}
 		}
 		else{
-			if (readTempData_ds18b20(&ds_temp) == 0) {
+			if (readTempData_ds18b20(SENSOR,&ds_temp) == 0) {
 				if (ds_temp & 0x8000) {
 					ds_temp=0x10000-ds_temp;
 					negative=1;
@@ -82,8 +87,8 @@ int main(void) {
 					negative=0;
 				}
 				ftemperature = ds_temp / 16.0;
-				ftoa(ftemperature, tdata, 2);
-				ftoa(0.0, hdata,2);
+				ftoa(ftemperature, tdata, 1);
+				ftoa(0.0, hdata,1);
 				sendMessage(tdata,hdata);
 			}
 		}
@@ -101,19 +106,34 @@ int main(void) {
 	}
 }
 
-void sendMessage(char tdata[], char hdata[]){
-	char msgString[256];
-	char msgSize[8];
+char * getDeviceID(){
+	char * devID = "AFFE";
+	return devID;
+}
 
-	snprintf(msgString, sizeof msgString, "T:%s;H:%s;", tdata, hdata);
-	snprintf(msgSize, sizeof msgSize, "%d", strlen(msgString));
+void sendMessage(char tdata[], char hdata[]){
+	char msgString[64];
+	char msgString2[64];
+	//char msgSize[8];
+	char * ip_addr;
+	uint16_t port;
+	ip_addr="192.168.0.101";
+	port=5555;
+
+	snprintf(msgString, sizeof msgString, "%s,\"%s\",%d\r\n\n", command_0,ip_addr,port);
+	//snprintf(msgString, sizeof msgString, "T:%s;H:%s;", tdata, hdata);
+	//snprintf(msgSize, sizeof msgSize, "%d", strlen(msgString));
 	softuart_init();
-	softuart_puts("AT+CIPSTART=\"TCP\",\"192.168.0.101\",5555\r\n\n");
+	softuart_puts(msgString);
+	//softuart_puts("AT+CIPSTART=\"TCP\",\"192.168.0.101\",5555\r\n\n");
 	_delay_ms(5000);
-	softuart_puts("AT+CIPSEND=");
-	softuart_puts(msgSize);
-	softuart_puts("\r\n\n");
+	snprintf(msgString, sizeof msgString, "ID:%s;T:%s;H:%s;", device_id, tdata, hdata);
+	snprintf(msgString2, sizeof msgString2,"%s%d\r\n\n", command_1,strlen(msgString));
+	softuart_puts(msgString2);
 	_delay_ms(1000);
+	softuart_puts(msgString);
+	/*softuart_puts("ID:");
+	softuart_puts(device_id);
 	softuart_puts("T:");
 	if(negative){
 		softuart_puts("-");
@@ -122,9 +142,9 @@ void sendMessage(char tdata[], char hdata[]){
 	softuart_puts(";H:");
 	softuart_puts(hdata);
 	softuart_puts(";");
-	softuart_puts("");
+	softuart_puts("");*/
 	_delay_ms(1000);
-	softuart_puts("AT+CIPCLOSE\r\n\n");
+	softuart_puts(command_2);
 }
 
 int getSensorType(){
@@ -135,18 +155,17 @@ int getSensorType(){
 void initPins() {
 	/*
 	 *
-	 *  pb2 - OUT DS18B20
 	 *  pb1 - Sensor select
-	 *  pb3 - OUT/IN AM2302 comms
+	 *  pb3 - AM2302 / DS18B20 comms 
 	 *  pb4 - OUT Clock
 	 *  pb0 - comms out
 	 */
-	setdirection(PB2, OUT);
+	//setdirection(PB2, OUT);
 	setdirection(PB1, IN);
-	setdirection(AM2302DATA, OUT);
+	setdirection(SENSOR, OUT);
 	//setdirection(PB0, OUT);
 	//setpin(PB1, 0);
-	setpin(AM2302DATA, 1);
+	setpin(SENSOR, 1);
 }
 
 // Converts a given integer x to string str[].  d is the number
