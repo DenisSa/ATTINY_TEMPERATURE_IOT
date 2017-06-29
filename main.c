@@ -20,6 +20,8 @@
 #include "softuart.h"
 
 #define SENSOR PB3
+#define DELAY_5_SEC 5000
+#define DELAY_1_SEC 1000
 
 void initPins();
 void ftoa(float n, char *res, int afterpoint);
@@ -66,7 +68,7 @@ int main(void) {
 	int ds_temp = 0;
 	device_id = getDeviceID();
 	initPins();
-	_delay_ms(5000);
+	_delay_ms(DELAY_5_SEC);
 
 	while (1) {
 		if(getSensorType()){
@@ -111,26 +113,31 @@ char * getDeviceID(){
 	return devID;
 }
 
+char * getIPAddress(){
+    char * ipAddress = "192.168.0.101";
+    return ipAddress;
+}
+
+int getPort(){
+    int port = 5555;
+    return port;
+}
+
 void sendMessage(char tdata[], char hdata[]){
 	char msgString[64];
 	char msgString2[64];
-	//char msgSize[8];
-	char * ip_addr;
-	uint16_t port;
-	ip_addr="192.168.0.101";
-	port=5555;
 
-	snprintf(msgString, sizeof msgString, "%s,\"%s\",%d\r\n\n", command_0,ip_addr,port);
+	snprintf(msgString, sizeof msgString, "%s,\"%s\",%d\r\n\n", command_0,getIPAddress(),getPort());
 	//snprintf(msgString, sizeof msgString, "T:%s;H:%s;", tdata, hdata);
 	//snprintf(msgSize, sizeof msgSize, "%d", strlen(msgString));
 	softuart_init();
 	softuart_puts(msgString);
 	//softuart_puts("AT+CIPSTART=\"TCP\",\"192.168.0.101\",5555\r\n\n");
-	_delay_ms(5000);
+	_delay_ms(DELAY_5_SEC);
 	snprintf(msgString, sizeof msgString, "ID:%s;T:%s;H:%s;", device_id, tdata, hdata);
 	snprintf(msgString2, sizeof msgString2,"%s%d\r\n\n", command_1,strlen(msgString));
 	softuart_puts(msgString2);
-	_delay_ms(1000);
+	_delay_ms(DELAY_1_SEC);
 	softuart_puts(msgString);
 	/*softuart_puts("ID:");
 	softuart_puts(device_id);
@@ -143,7 +150,7 @@ void sendMessage(char tdata[], char hdata[]){
 	softuart_puts(hdata);
 	softuart_puts(";");
 	softuart_puts("");*/
-	_delay_ms(1000);
+	_delay_ms(DELAY_1_SEC);
 	softuart_puts(command_2);
 }
 
