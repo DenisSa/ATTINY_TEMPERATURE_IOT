@@ -1,0 +1,12 @@
+Project Goals:
+    Main Goal:
+        Energy effecient
+        Support for DS18B20 sensor
+        Support for AM2302 sensor
+        Periodic report of temperature / humidity through WIFI via ESP8266
+    Stretch Goal:
+        Configurability via ESP8266
+            Sensor select
+            Report frequency
+            Server IP
+            WIFI login info
