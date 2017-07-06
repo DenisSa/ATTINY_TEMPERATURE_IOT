@@ -19,9 +19,11 @@
 #include <avr/pgmspace.h>
 #include "softuart.h"
 
+#define WIFI_RST PB2
 #define SENSOR PB3
 #define DELAY_5_SEC 5000
 #define DELAY_1_SEC 1000
+#define DELAY_100_MSEC 100
 
 void initPins();
 void ftoa(float n, char *res, int afterpoint);
@@ -31,6 +33,8 @@ void setupWatchdog();
 void sendMessage(char tdata[], char hdata[]);
 int getSensorType();
 char * getDeviceID();
+void enableWIFI();
+void disableWIFI();
 
 uint8_t wdt_counter = 0;
 int negative = 0;
@@ -39,6 +43,17 @@ char * device_id;
 const char command_0[] = "AT+CIPSTART=\"TCP\"";
 const char command_1[] = "AT+CIPSEND=";
 const char command_2[] = "AT+CIPCLOSE\r\n\n";
+const char command_3[] = "AT+GSLP=294967294\r\n\n";
+
+void disableWIFI(){
+    softuart_puts(command_3);
+}
+
+void enableWIFI(){
+    setpin(WIFI_RST,0);
+    _delay_ms(DELAY_100_MSEC);
+    setpin(WIFI_RST,1);
+}
 
 void setupWatchdog() {
 	cli();
@@ -114,7 +129,7 @@ char * getDeviceID(){
 }
 
 char * getIPAddress(){
-    char * ipAddress = "192.168.0.101";
+    char * ipAddress = "192.168.0.103";
     return ipAddress;
 }
 
@@ -127,6 +142,9 @@ void sendMessage(char tdata[], char hdata[]){
 	char msgString[64];
 	char msgString2[64];
 
+    enableWIFI();
+    _delay_ms(DELAY_5_SEC);
+    
 	snprintf(msgString, sizeof msgString, "%s,\"%s\",%d\r\n\n", command_0,getIPAddress(),getPort());
 	//snprintf(msgString, sizeof msgString, "T:%s;H:%s;", tdata, hdata);
 	//snprintf(msgSize, sizeof msgSize, "%d", strlen(msgString));
@@ -152,6 +170,9 @@ void sendMessage(char tdata[], char hdata[]){
 	softuart_puts("");*/
 	_delay_ms(DELAY_1_SEC);
 	softuart_puts(command_2);
+    
+    _delay_ms(DELAY_1_SEC);
+    disableWIFI();
 }
 
 int getSensorType(){
@@ -170,9 +191,11 @@ void initPins() {
 	//setdirection(PB2, OUT);
 	setdirection(PB1, IN);
 	setdirection(SENSOR, OUT);
+    setdirection(WIFI_RST, OUT);
 	//setdirection(PB0, OUT);
 	//setpin(PB1, 0);
 	setpin(SENSOR, 1);
+    setpin(WIFI_RST,1);
 }
 
 // Converts a given integer x to string str[].  d is the number
