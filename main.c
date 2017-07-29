@@ -10,8 +10,6 @@
 #include "gpio.h"
 #include "am2302Sensor.h"
 #include "ds18b20.h"
-#include <string.h>
-#include <stdio.h>
 #include <avr/sleep.h>
 #include <avr/wdt.h>
 #include <avr/eeprom.h>
@@ -133,42 +131,66 @@ char * getIPAddress(){
     return ipAddress;
 }
 
-int getPort(){
-    int port = 5555;
+char * getPort(){
+    char * port = "5555";
     return port;
 }
 
-void sendMessage(char tdata[], char hdata[]){
-	char msgString[64];
-	char msgString2[64];
+void connect_server(){
+    softuart_puts(command_0);
+    softuart_puts(",\"");
+    softuart_puts(getIPAddress());
+    softuart_puts("\",");
+    softuart_puts(getPort());
+    softuart_puts("\r\n\n");
+       
+}
 
+void sendMessage(char tdata[], char hdata[]){
+	char charStr[4];
+    int i = 0;
+    int charCounter=0;
     enableWIFI();
     _delay_ms(DELAY_5_SEC);
     
-	snprintf(msgString, sizeof msgString, "%s,\"%s\",%d\r\n\n", command_0,getIPAddress(),getPort());
-	//snprintf(msgString, sizeof msgString, "T:%s;H:%s;", tdata, hdata);
-	//snprintf(msgSize, sizeof msgSize, "%d", strlen(msgString));
+	//snprintf(msgString, sizeof msgString, "%s,\"%s\",%d\r\n\n", command_0,getIPAddress(),getPort());
 	softuart_init();
-	softuart_puts(msgString);
-	//softuart_puts("AT+CIPSTART=\"TCP\",\"192.168.0.101\",5555\r\n\n");
+	
+    connect_server();
+    
 	_delay_ms(DELAY_5_SEC);
-	snprintf(msgString, sizeof msgString, "ID:%s;T:%s;H:%s;", device_id, tdata, hdata);
-	snprintf(msgString2, sizeof msgString2,"%s%d\r\n\n", command_1,strlen(msgString));
-	softuart_puts(msgString2);
+    
+    for(i=0; i<6; i++){
+        if(tdata[i] == '\0'){
+            break;
+        }
+        charCounter++;
+    }
+    for(i=0; i<6; i++){
+        if(hdata[i] == '\0'){
+            break;
+        }
+        charCounter++;
+    }
+    charCounter+=14;
+    
+    intToStr(charCounter, charStr, 0);
+	//snprintf(msgString, sizeof msgString, "ID:%s;T:%s;H:%s;", device_id, tdata, hdata);
+	//snprintf(msgString2, sizeof msgString2,"%s%d\r\n\n", command_1,strlen(msgString));
+	//softuart_puts(msgString2);
+    softuart_puts(command_1);
+    softuart_puts(charStr);
+    softuart_puts("\r\n\n");
 	_delay_ms(DELAY_1_SEC);
-	softuart_puts(msgString);
-	/*softuart_puts("ID:");
-	softuart_puts(device_id);
-	softuart_puts("T:");
-	if(negative){
-		softuart_puts("-");
-	}
-	softuart_puts(tdata);
-	softuart_puts(";H:");
-	softuart_puts(hdata);
-	softuart_puts(";");
-	softuart_puts("");*/
-	_delay_ms(DELAY_1_SEC);
+	//softuart_puts(msgString);
+    softuart_puts("ID:");
+    softuart_puts(device_id);
+    softuart_puts(";T:");
+    softuart_puts(tdata);
+    softuart_puts(";H:");
+    softuart_puts(hdata);
+    softuart_puts(";");
+    _delay_ms(DELAY_1_SEC);
 	softuart_puts(command_2);
     
     _delay_ms(DELAY_1_SEC);
