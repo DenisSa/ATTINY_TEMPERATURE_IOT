@@ -34,6 +34,7 @@ char * getDeviceID();
 void enableWIFI();
 void disableWIFI();
 void uart_out(const char * str);
+int esp8266_get_ack(const char c);
 
 uint8_t wdt_counter = 0;
 int negative = 0;
@@ -96,6 +97,7 @@ int main(void) {
 	_delay_ms(DELAY_5_SEC);
 	while (1) {
 		if(getSensorType()){
+            uart_out("Ready to send AM2302\r\n");
 			if (readAM2302Data(SENSOR, data) == 0) {
 				ftemperature = getTemperature(data);
 				fhumidity = getHumidity(data);
@@ -105,6 +107,7 @@ int main(void) {
 			}
 		}
 		else{
+            uart_out("Ready to send DS18B20\r\n");
 			if (readTempData_ds18b20(SENSOR,&ds_temp) == 0) {
 				if (ds_temp & 0x8000) {
 					ds_temp=0x10000-ds_temp;
@@ -162,8 +165,7 @@ void sendMessage(char tdata[], char hdata[]){
     int i = 0;
     int charCounter=0;
     enableWIFI();
-    _delay_ms(DELAY_5_SEC);
-    
+    esp8266_get_ack('P');
 	//snprintf(msgString, sizeof msgString, "%s,\"%s\",%d\r\n\n", command_0,getIPAddress(),getPort());
 	
     connect_server();
@@ -172,7 +174,7 @@ void sendMessage(char tdata[], char hdata[]){
     while(softuart_getchar() != 'h'){
     }
     uart_out("Got input\n");*/
-	_delay_ms(DELAY_5_SEC);
+	esp8266_get_ack('K');
     
     for(i=0; i<6; i++){
         if(tdata[i] == '\0'){
@@ -195,7 +197,7 @@ void sendMessage(char tdata[], char hdata[]){
     uart_out(command_1);
     uart_out(charStr);
     uart_out("\r\n\n");
-	_delay_ms(DELAY_1_SEC);
+	esp8266_get_ack('>');
 	//uart_out(msgString);
     uart_out("ID:");
     uart_out(device_id);
@@ -204,29 +206,37 @@ void sendMessage(char tdata[], char hdata[]){
     uart_out(";H:");
     uart_out(hdata);
     uart_out(";");
-    _delay_ms(DELAY_1_SEC);
+    esp8266_get_ack('K');
 	uart_out(command_2);
-    
-    _delay_ms(DELAY_1_SEC);
+    esp8266_get_ack('K');
+    //_delay_ms(DELAY_1_SEC);
     disableWIFI();
+    esp8266_get_ack('K');
+}
+
+int esp8266_get_ack(const char c){
+    while(softuart_getchar() != c){
+    }
+    return 0;
 }
 
 int getSensorType(){
-	setdirection(PB1,IN);
-	return ((PINB & _BV(PB1)) >> PB1);
+    return 1;
+	//setdirection(PB1,IN);
+	//return ((PINB & _BV(PB1)) >> PB1);
 }
 
 void initPins() {
 	/*
 	 *
-	 *  pb1 - Sensor select
 	 *  pb3 - AM2302 / DS18B20 comms 
 	 *  pb4 - OUT Clock (Debug)
 	 *  pb0 - comms OUT
-     *  pb2 - comms IN
+     *  pb1 - comms IN
+     *  pb2 - WIFI RST
 	 */
 	//setdirection(PB2, OUT);
-	setdirection(PB1, IN);
+	//setdirection(PB1, IN);
 	setdirection(SENSOR, OUT);
     setdirection(WIFI_RST, OUT);
 	//setdirection(PB0, OUT);
