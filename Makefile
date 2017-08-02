@@ -4,7 +4,7 @@
 DEVICE      = attiny85
 CLOCK      = 8000000
 PROGRAMMER = -c dragon_isp 
-OBJECTS    = main.o gpio.o softuart.o am2302Sensor.o ds18b20.o
+OBJECTS    = main.o gpio.o am2302Sensor.o ds18b20.o BasicSerial3.o
 # for ATTiny85
 # see http://www.engbedded.com/fusecalc/
 FUSES       = -U lfuse:w:0xa2:m -U hfuse:w:0xd5:m -U efuse:w:0xff:m 

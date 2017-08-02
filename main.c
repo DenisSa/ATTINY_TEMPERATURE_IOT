@@ -15,7 +15,7 @@
 #include <avr/eeprom.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
-#include "softuart.h"
+#include "BasicSerial3.h"
 
 #define WIFI_RST PB2
 #define SENSOR PB3
@@ -33,6 +33,7 @@ int getSensorType();
 char * getDeviceID();
 void enableWIFI();
 void disableWIFI();
+void uart_out(const char * str);
 
 uint8_t wdt_counter = 0;
 int negative = 0;
@@ -44,7 +45,7 @@ const char command_2[] = "AT+CIPCLOSE\r\n\n";
 const char command_3[] = "AT+GSLP=294967294\r\n\n";
 
 void disableWIFI(){
-    softuart_puts(command_3);
+    uart_out(command_3);
 }
 
 void enableWIFI(){
@@ -70,6 +71,16 @@ ISR(WDT_vect) {
 	wdt_counter++;
 }
 
+void uart_out(const char * str){
+    while(*str) {
+        TxByte(*str++);
+    }
+}
+
+char softuart_getchar(){
+    return RxByte();
+}
+
 int main(void) {
 	uint8_t data[5];
 	float ftemperature = 0;
@@ -81,8 +92,8 @@ int main(void) {
 	int ds_temp = 0;
 	device_id = getDeviceID();
 	initPins();
+    TxByte('h');
 	_delay_ms(DELAY_5_SEC);
-
 	while (1) {
 		if(getSensorType()){
 			if (readAM2302Data(SENSOR, data) == 0) {
@@ -137,12 +148,12 @@ char * getPort(){
 }
 
 void connect_server(){
-    softuart_puts(command_0);
-    softuart_puts(",\"");
-    softuart_puts(getIPAddress());
-    softuart_puts("\",");
-    softuart_puts(getPort());
-    softuart_puts("\r\n\n");
+    uart_out(command_0);
+    uart_out(",\"");
+    uart_out(getIPAddress());
+    uart_out("\",");
+    uart_out(getPort());
+    uart_out("\r\n\n");
        
 }
 
@@ -154,10 +165,13 @@ void sendMessage(char tdata[], char hdata[]){
     _delay_ms(DELAY_5_SEC);
     
 	//snprintf(msgString, sizeof msgString, "%s,\"%s\",%d\r\n\n", command_0,getIPAddress(),getPort());
-	softuart_init();
 	
     connect_server();
     
+    /*uart_out("Awaiting input...\n");
+    while(softuart_getchar() != 'h'){
+    }
+    uart_out("Got input\n");*/
 	_delay_ms(DELAY_5_SEC);
     
     for(i=0; i<6; i++){
@@ -177,21 +191,21 @@ void sendMessage(char tdata[], char hdata[]){
     intToStr(charCounter, charStr, 0);
 	//snprintf(msgString, sizeof msgString, "ID:%s;T:%s;H:%s;", device_id, tdata, hdata);
 	//snprintf(msgString2, sizeof msgString2,"%s%d\r\n\n", command_1,strlen(msgString));
-	//softuart_puts(msgString2);
-    softuart_puts(command_1);
-    softuart_puts(charStr);
-    softuart_puts("\r\n\n");
+	//uart_out(msgString2);
+    uart_out(command_1);
+    uart_out(charStr);
+    uart_out("\r\n\n");
 	_delay_ms(DELAY_1_SEC);
-	//softuart_puts(msgString);
-    softuart_puts("ID:");
-    softuart_puts(device_id);
-    softuart_puts(";T:");
-    softuart_puts(tdata);
-    softuart_puts(";H:");
-    softuart_puts(hdata);
-    softuart_puts(";");
+	//uart_out(msgString);
+    uart_out("ID:");
+    uart_out(device_id);
+    uart_out(";T:");
+    uart_out(tdata);
+    uart_out(";H:");
+    uart_out(hdata);
+    uart_out(";");
     _delay_ms(DELAY_1_SEC);
-	softuart_puts(command_2);
+	uart_out(command_2);
     
     _delay_ms(DELAY_1_SEC);
     disableWIFI();
@@ -207,8 +221,9 @@ void initPins() {
 	 *
 	 *  pb1 - Sensor select
 	 *  pb3 - AM2302 / DS18B20 comms 
-	 *  pb4 - OUT Clock
-	 *  pb0 - comms out
+	 *  pb4 - OUT Clock (Debug)
+	 *  pb0 - comms OUT
+     *  pb2 - comms IN
 	 */
 	//setdirection(PB2, OUT);
 	setdirection(PB1, IN);
