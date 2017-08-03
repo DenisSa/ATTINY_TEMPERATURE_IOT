@@ -12,10 +12,10 @@
 #include "ds18b20.h"
 #include <avr/sleep.h>
 #include <avr/wdt.h>
-#include <avr/eeprom.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include "BasicSerial3.h"
+#include "eeprom_defaults.h"
 
 #define WIFI_RST PB2
 #define SENSOR PB3

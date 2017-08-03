@@ -4,7 +4,7 @@
 DEVICE      = attiny85
 CLOCK      = 8000000
 PROGRAMMER = -c dragon_isp 
-OBJECTS    = main.o gpio.o am2302Sensor.o ds18b20.o BasicSerial3.o
+OBJECTS    = main.o gpio.o am2302Sensor.o ds18b20.o BasicSerial3.o eeprom_defaults.o
 # for ATTiny85
 # see http://www.engbedded.com/fusecalc/
 FUSES       = -U lfuse:w:0xa2:m -U hfuse:w:0xd5:m -U efuse:w:0xff:m 
@@ -15,7 +15,7 @@ AVRDUDE = avrdude $(PROGRAMMER) -p $(DEVICE)
 COMPILE = avr-gcc -Wall -Os -DF_CPU=$(CLOCK) -mmcu=$(DEVICE) $(FILES)
 
 # symbolic targets:
-all:	main.hex
+all:	main.eeprom main.hex
 
 .c.o:
 	$(COMPILE) -c $< -o $@
@@ -26,9 +26,15 @@ all:	main.hex
 .c.s:
 	$(COMPILE) -S $< -o $@
 
+dump: 
+	$(AVRDUDE) -U eeprom:r:eedump.hex:i
+	
 flash:	all
 	$(AVRDUDE) -U flash:w:main.hex:i
 
+eeprom: all
+	$(AVRDUDE) -U eeprom:w:main.eeprom:i
+	
 fuse:
 	$(AVRDUDE) $(FUSES)
 
@@ -50,6 +56,10 @@ main.hex: main.elf
 	rm -f main.hex
 	avr-objcopy -j .text -j .data -O ihex main.elf main.hex
 	avr-size --format=avr --mcu=$(DEVICE) main.elf
+	
+main.eeprom: main.elf
+	rm -f main.eeprom
+	avr-objcopy --change-section-lma .eeprom=0 -j .eeprom -O ihex main.elf main.eeprom
 # If you have an EEPROM section, you must also create a hex file for the
 # EEPROM and add it to the "flash" target.
 
