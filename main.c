@@ -25,16 +25,17 @@
 
 void initPins();
 void ftoa(float n, char *res, int afterpoint);
-int intToStr(int x, char str[], int d);
+int intToStr(uint32_t x, char str[], int d);
 void reverse(char *str, int len);
 void setupWatchdog();
 void sendMessage(char tdata[], char hdata[]);
-int getSensorType();
+uint8_t getSensorType();
 char * getDeviceID();
 void enableWIFI();
 void disableWIFI();
 void uart_out(const char * str);
 int esp8266_get_ack(const char c);
+char * uint_to_string(uint32_t ip_address);
 
 uint8_t wdt_counter = 0;
 int negative = 0;
@@ -93,7 +94,9 @@ int main(void) {
 	int ds_temp = 0;
 	device_id = getDeviceID();
 	initPins();
-    TxByte('h');
+    uart_out("Hello from: ");
+    uart_out(device_id);
+    uart_out("\r\n");
 	_delay_ms(DELAY_5_SEC);
 	while (1) {
 		if(getSensorType()){
@@ -135,19 +138,73 @@ int main(void) {
 	}
 }
 
+char * uint_to_string(uint32_t ip_address){
+    int i=0,j=0;
+    char * ipAddress = "255.255.255.255";
+    char * ip_octet0 = "255";
+    char * ip_octet1 = "254";
+    char * ip_octet2 = "253";
+    char * ip_octet3 = "252";
+    
+    intToStr(ip_address & 0xFF, ip_octet0, 1); //103
+    intToStr((ip_address >> 8) & 0xFF, ip_octet1, 1); //0
+    intToStr((ip_address >> 16) & 0xFF, ip_octet2, 1); //168
+    intToStr((ip_address >> 24) & 0xFF, ip_octet3, 1); //192
+    
+    uart_out(ip_octet3);
+    uart_out(".");
+    uart_out(ip_octet2);
+    uart_out(".");
+    uart_out(ip_octet1);
+    uart_out(".");
+    uart_out(ip_octet0);
+  
+    for(i=0; ip_octet0[i] != '\0'; i++){
+        ipAddress[j] = ip_octet0[i];
+        j++;
+    }
+    ipAddress[j++] = '.';
+    for(i=0; ip_octet1[i] != '\0'; i++){
+        ipAddress[j] = ip_octet1[i];
+        j++;
+    }
+    ipAddress[j++] = '.';
+    for(i=0; ip_octet2[i] != '\0'; i++){
+        ipAddress[j] = ip_octet2[i];
+        j++;
+    }
+    ipAddress[j++] = '.';
+    for(i=0; ip_octet3[i] != '\0'; i++){
+        ipAddress[j] = ip_octet3[i];
+        j++;
+    }
+    ipAddress[j] = '\0';
+    
+    return ipAddress;
+}
+
 char * getDeviceID(){
-	char * devID = "AFFE";
+	char * devID = "9999";
+    uint8_t deviceID = eeprom_read_byte(&dev_id);
+    intToStr(deviceID, devID, 4);
 	return devID;
 }
 
 char * getIPAddress(){
-    char * ipAddress = "192.168.0.103";
-    return ipAddress;
+    uint32_t ip_address;
+    ip_address = eeprom_read_dword(&ip_addr);
+    return uint_to_string(ip_address);
 }
 
 char * getPort(){
-    char * port = "5555";
-    return port;
+    char * port = "65535";
+    uint16_t iport = eeprom_read_word(&ip_port);
+    intToStr(iport, port, 0);
+	return port;
+}
+
+uint8_t getSensorType(){
+    return eeprom_read_byte(&sensor_type);
 }
 
 void connect_server(){
@@ -220,12 +277,6 @@ int esp8266_get_ack(const char c){
     return 0;
 }
 
-int getSensorType(){
-    return 1;
-	//setdirection(PB1,IN);
-	//return ((PINB & _BV(PB1)) >> PB1);
-}
-
 void initPins() {
 	/*
 	 *
@@ -248,7 +299,7 @@ void initPins() {
 // Converts a given integer x to string str[].  d is the number
 // of digits required in output. If d is more than the number
 // of digits in x, then 0s are added at the beginning.
-int intToStr(int x, char str[], int d) {
+int intToStr(uint32_t x, char str[], int d) {
 	int i = 0;
 	while (x) {
 		str[i++] = (x % 10) + '0';
