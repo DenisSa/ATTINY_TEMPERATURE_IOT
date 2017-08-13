@@ -24,22 +24,30 @@
 #define DELAY_100_MSEC 100
 
 void initPins();
+void initData();
 void ftoa(float n, char *res, int afterpoint);
 int intToStr(uint32_t x, char str[], int d);
 void reverse(char *str, int len);
 void setupWatchdog();
 void sendMessage(char tdata[], char hdata[]);
 uint8_t getSensorType();
-char * getDeviceID();
+void getDeviceID(char * devID);
 void enableWIFI();
 void disableWIFI();
+void getPort(char * port);
 void uart_out(const char * str);
 int esp8266_get_ack(const char c);
-char * uint_to_string(uint32_t ip_address);
+void uint_to_string(uint32_t ip_address, char * ipAddress);
+void getIPAddress(char * ipaddr);
+void print_header();
 
 uint8_t wdt_counter = 0;
 int negative = 0;
-char * device_id;
+
+char device_id[4];
+char ipPort[5];
+uint8_t sensorType;
+char ipAddr[15];
 
 const char command_0[] = "AT+CIPSTART=\"TCP\"";
 const char command_1[] = "AT+CIPSEND=";
@@ -48,6 +56,13 @@ const char command_3[] = "AT+GSLP=294967294\r\n\n";
 
 void disableWIFI(){
     uart_out(command_3);
+}
+
+void initData(){
+    getDeviceID(device_id);
+    getPort(ipPort);
+    sensorType = getSensorType();
+    getIPAddress(ipAddr);
 }
 
 void enableWIFI(){
@@ -83,6 +98,16 @@ char softuart_getchar(){
     return RxByte();
 }
 
+void print_header(){
+    uart_out("\r\nHello from: ");
+    uart_out(device_id);
+    uart_out("\r\nIP: ");
+    uart_out(ipAddr);
+    uart_out("\r\nPort: ");
+    uart_out(ipPort);
+    uart_out("\r\n...\r\n");
+}
+
 int main(void) {
 	uint8_t data[5];
 	float ftemperature = 0;
@@ -92,11 +117,10 @@ int main(void) {
 
 	//float temp = 0;
 	int ds_temp = 0;
-	device_id = getDeviceID();
+	
 	initPins();
-    uart_out("Hello from: ");
-    uart_out(device_id);
-    uart_out("\r\n");
+    initData();
+    print_header();
 	_delay_ms(DELAY_5_SEC);
 	while (1) {
 		if(getSensorType()){
@@ -138,69 +162,40 @@ int main(void) {
 	}
 }
 
-char * uint_to_string(uint32_t ip_address){
-    int i=0,j=0;
-    char * ipAddress = "255.255.255.255";
-    char * ip_octet0 = "255";
-    char * ip_octet1 = "254";
-    char * ip_octet2 = "253";
-    char * ip_octet3 = "252";
+void uint_to_string(uint32_t ip_address, char * ipAddress){
+    int i=0,j=0,k=0;
+    char ip_octet[4][4];
     
-    intToStr(ip_address & 0xFF, ip_octet0, 1); //103
-    intToStr((ip_address >> 8) & 0xFF, ip_octet1, 1); //0
-    intToStr((ip_address >> 16) & 0xFF, ip_octet2, 1); //168
-    intToStr((ip_address >> 24) & 0xFF, ip_octet3, 1); //192
+    intToStr(ip_address & 0xFF, ip_octet[0], 1); //103
+    intToStr((ip_address >> 8) & 0xFF, ip_octet[1], 1); //0
+    intToStr((ip_address >> 16) & 0xFF, ip_octet[2], 1); //168
+    intToStr((ip_address >> 24) & 0xFF, ip_octet[3], 1); //192
     
-    uart_out(ip_octet3);
-    uart_out(".");
-    uart_out(ip_octet2);
-    uart_out(".");
-    uart_out(ip_octet1);
-    uart_out(".");
-    uart_out(ip_octet0);
-  
-    for(i=0; ip_octet0[i] != '\0'; i++){
-        ipAddress[j] = ip_octet0[i];
+    for(k = 3; k>=0; k--){
+        for(i = 0; ip_octet[k][i] != '\0'; i++){
+        ipAddress[j] = ip_octet[k][i];
         j++;
     }
     ipAddress[j++] = '.';
-    for(i=0; ip_octet1[i] != '\0'; i++){
-        ipAddress[j] = ip_octet1[i];
-        j++;
     }
-    ipAddress[j++] = '.';
-    for(i=0; ip_octet2[i] != '\0'; i++){
-        ipAddress[j] = ip_octet2[i];
-        j++;
-    }
-    ipAddress[j++] = '.';
-    for(i=0; ip_octet3[i] != '\0'; i++){
-        ipAddress[j] = ip_octet3[i];
-        j++;
-    }
-    ipAddress[j] = '\0';
-    
-    return ipAddress;
+
+    ipAddress[--j] = '\0';
 }
 
-char * getDeviceID(){
-	char * devID = "9999";
+void getDeviceID(char * devID){
     uint8_t deviceID = eeprom_read_byte(&dev_id);
-    intToStr(deviceID, devID, 4);
-	return devID;
+    intToStr(deviceID, devID, 0);
 }
 
-char * getIPAddress(){
+void getIPAddress(char * ipaddr){
     uint32_t ip_address;
     ip_address = eeprom_read_dword(&ip_addr);
-    return uint_to_string(ip_address);
+    uint_to_string(ip_address, ipaddr);
 }
 
-char * getPort(){
-    char * port = "65535";
+void getPort(char * port){
     uint16_t iport = eeprom_read_word(&ip_port);
     intToStr(iport, port, 0);
-	return port;
 }
 
 uint8_t getSensorType(){
@@ -210,9 +205,9 @@ uint8_t getSensorType(){
 void connect_server(){
     uart_out(command_0);
     uart_out(",\"");
-    uart_out(getIPAddress());
+    uart_out(ipAddr);
     uart_out("\",");
-    uart_out(getPort());
+    uart_out(ipPort);
     uart_out("\r\n\n");
        
 }
